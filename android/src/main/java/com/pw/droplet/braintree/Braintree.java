@@ -200,7 +200,7 @@ public class Braintree extends ReactContextBaseJavaModule implements ActivityEve
           this.successCallback.invoke(paymentMethodNonce.getNonce());
           break;
         case Activity.RESULT_CANCELED:
-          this.errorCallback.invoke("RESULT_CANCELED");
+          this.errorCallback.invoke("User cancelled payment");
           break;
         case BraintreePaymentActivity.BRAINTREE_RESULT_DEVELOPER_ERROR:
         case BraintreePaymentActivity.BRAINTREE_RESULT_SERVER_ERROR:
