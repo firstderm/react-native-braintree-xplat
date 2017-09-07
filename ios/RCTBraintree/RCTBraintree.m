@@ -110,7 +110,7 @@ RCT_EXPORT_METHOD(showPayPalViewController:(RCTResponseSenderBlock)callback)
         payPalDriver.viewControllerPresentingDelegate = self;
 
         [payPalDriver authorizeAccountWithCompletion:^(BTPayPalAccountNonce *tokenizedPayPalAccount, NSError *error) {
-            NSMutableArray *args = @[[NSNull null]];
+            NSMutableArray *args = @[@"User cancelled payment", [NSNull null]];
             if ( error == nil && tokenizedPayPalAccount != nil ) {
                 args = [@[[NSNull null], tokenizedPayPalAccount.nonce, tokenizedPayPalAccount.email, tokenizedPayPalAccount.firstName, tokenizedPayPalAccount.lastName] mutableCopy];
 
