@@ -6,32 +6,51 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "PPRMOCMagnesResult.h"
 
+/**
+ Used to collect risk data via the PayPal data collector
+ */
 @interface PPDataCollector : NSObject
 
-/// Returns a client metadata ID.
-///
-/// @warning This returns a raw client metadata ID, which is not the correct format for device data
-/// when creating a transaction. Instead, it is recommended to use `collectPayPalDeviceData`.
-///
-/// @param pairingID a pairing ID to associate with this clientMetadataID must be 10-32 chars long or null
-/// @return a client metadata ID to send as a header
-+ (nonnull NSString *)clientMetadataID:(nullable NSString *)pairingID DEPRECATED_MSG_ATTRIBUTE("Use [PPDataCollector collectPayPalDeviceData] to generate a device data string.");
+/**
+ Returns a client metadata ID.
 
-/// Returns a client metadata ID.
-///
-/// @warning This returns a raw client metadata ID, which is not the correct format for device data
-/// when creating a transaction. Instead, it is recommended to use `collectPayPalDeviceData`.
-///
-/// @return a client metadata ID to send as a header
+ @note This returns a raw client metadata ID, which is not the correct format for device data
+ when creating a transaction. Instead, it is recommended to use `collectPayPalDeviceData`.
+
+ @param pairingID a pairing ID to associate with this clientMetadataID must be 10-32 chars long or null
+ @return a client metadata ID to send as a header
+*/
++ (nonnull NSString *)clientMetadataID:(nullable NSString *)pairingID;
+
+/**
+ Returns a client metadata ID.
+
+ @note This returns a raw client metadata ID, which is not the correct format for device data
+ when creating a transaction. Instead, it is recommended to use `collectPayPalDeviceData`.
+
+ @return a client metadata ID to send as a header
+*/
 + (nonnull NSString *)clientMetadataID DEPRECATED_MSG_ATTRIBUTE("Use [PPDataCollector collectPayPalDeviceData] to generate a device data string.");
 
-/// Collects device data for PayPal.
-///
-/// This should be used when the user is paying with PayPal or Venmo only.
-///
-/// @return a deviceData string that should be passed into server-side calls, such as `Transaction.sale`,
-///         for PayPal transactions. This JSON serialized string contains a PayPal fraud ID.
+/**
+ Collects device data for PayPal.
+
+ This should be used when the user is paying with PayPal or Venmo only.
+
+ @return a deviceData string that should be passed into server-side calls, such as `Transaction.sale`,
+         for PayPal transactions. This JSON serialized string contains a PayPal fraud ID.
+*/
 + (nonnull NSString *)collectPayPalDeviceData;
+
+/**
+ For internal use only, returns an object with device data and clientMetadataID.
+
+ @param clientMetadataID a pairing ID to associate with this clientMetadataID must be 10-32 chars long or null
+
+ @return a nonnull Result with the device data
+ */
++ (nonnull PPRMOCMagnesSDKResult *)collectPayPalDeviceInfoWithClientMetadataID:(nullable NSString *)clientMetadataID;
 
 @end

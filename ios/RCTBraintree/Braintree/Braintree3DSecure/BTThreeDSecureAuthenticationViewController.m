@@ -42,34 +42,35 @@
 }
 
 - (void)didCompleteAuthentication:(BTThreeDSecureResponse *)response {
-    if (response.success) {
-        if ([self.delegate respondsToSelector:@selector(threeDSecureViewController:didAuthenticateCard:completion:)]) {
-            [self.delegate threeDSecureViewController:self
-                                  didAuthenticateCard:response.tokenizedCard
-                                           completion:^(__unused BTThreeDSecureViewControllerCompletionStatus status) {
-                                               if ([self.delegate respondsToSelector:@selector(threeDSecureViewControllerDidFinish:)]) {
-                                                   [self.delegate threeDSecureViewControllerDidFinish:self];
-                                               }
-                                           }];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (response.success) {
+            if ([self.delegate respondsToSelector:@selector(threeDSecureViewController:didAuthenticateCard:completion:)]) {
+                [self.delegate threeDSecureViewController:self
+                                      didAuthenticateCard:response.tokenizedCard
+                                               completion:^(__unused BTThreeDSecureViewControllerCompletionStatus status) {
+                                                   if ([self.delegate respondsToSelector:@selector(threeDSecureViewControllerDidFinish:)]) {
+                                                       [self.delegate threeDSecureViewControllerDidFinish:self];
+                                                   }
+                                               }];
+            }
+        } else {
+            NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithCapacity:2];
+            if (response.threeDSecureInfo) {
+                userInfo[BTThreeDSecureInfoKey] = response.threeDSecureInfo;
+            }
+            if (response.errorMessage) {
+                userInfo[NSLocalizedDescriptionKey] = response.errorMessage;
+            }
+            NSError *error = [NSError errorWithDomain:BTThreeDSecureErrorDomain
+                                                 code:BTThreeDSecureErrorTypeFailedAuthentication
+                                             userInfo:userInfo];
+            if ([self.delegate respondsToSelector:@selector(threeDSecureViewController:didFailWithError:)]) {
+                [self.delegate threeDSecureViewController:self didFailWithError:error];
+            } else if ([self.delegate respondsToSelector:@selector(threeDSecureViewControllerDidFinish:)]) {
+                [self.delegate threeDSecureViewControllerDidFinish:self];
+            }
         }
-    } else {
-        NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithCapacity:2];
-        if (response.threeDSecureInfo) {
-            userInfo[BTThreeDSecureInfoKey] = response.threeDSecureInfo;
-        }
-        if (response.errorMessage) {
-            userInfo[NSLocalizedDescriptionKey] = response.errorMessage;
-        }
-        NSError *error = [NSError errorWithDomain:BTThreeDSecureErrorDomain
-                                             code:BTThreeDSecureErrorTypeFailedAuthentication
-                                         userInfo:userInfo];
-        if ([self.delegate respondsToSelector:@selector(threeDSecureViewController:didFailWithError:)]) {
-            [self.delegate threeDSecureViewController:self didFailWithError:error];
-        }
-        if ([self.delegate respondsToSelector:@selector(threeDSecureViewControllerDidFinish:)]) {
-            [self.delegate threeDSecureViewControllerDidFinish:self];
-        }
-    }
+    });
 }
 
 #pragma mark UIWebViewDelegate
@@ -77,7 +78,7 @@
 - (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType {
     if (navigationType == UIWebViewNavigationTypeFormSubmitted && [request.URL.path rangeOfString:@"authentication_complete_frame"].location != NSNotFound) {
         
-        NSString *jsonAuthResponse = [BTURLUtils dictionaryForQueryString:request.URL.query][@"auth_response"];
+        NSString *jsonAuthResponse = [BTURLUtils queryParametersForURL:request.URL][@"auth_response"];
         BTJSON *authBody = [[BTJSON alloc] initWithValue:[NSJSONSerialization JSONObjectWithData:[jsonAuthResponse dataUsingEncoding:NSUTF8StringEncoding] options:0 error:NULL]];
 
         BTThreeDSecureResponse *authResponse = [[BTThreeDSecureResponse alloc] init];

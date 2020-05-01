@@ -3,14 +3,23 @@
 #import <BraintreePayPal/BraintreePayPal.h>
 
 @interface BraintreeDemoPayPalBillingAgreementViewController () <BTAppSwitchDelegate, BTViewControllerPresentingDelegate>
+@property(nonatomic, strong) UITextView *infoTextView;
 
 @end
 
 @implementation BraintreeDemoPayPalBillingAgreementViewController
 
+- (void)viewDidLoad {
+    [super viewDidLoad];
+
+    self.infoTextView = [[UITextView alloc] initWithFrame:CGRectMake((self.view.bounds.size.width / 2) - 100, (self.view.bounds.size.width / 8) * 7, 200, 100)];
+    [self.view addSubview:self.infoTextView];
+    self.infoTextView.backgroundColor = [UIColor clearColor];
+}
+
 - (UIView *)createPaymentButton {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
-    [button setTitle:@"Billing Agreement with PayPal" forState:UIControlStateNormal];
+    [button setTitle:NSLocalizedString(@"Billing Agreement with PayPal", nil) forState:UIControlStateNormal];
     [button setTitleColor:[UIColor blueColor] forState:UIControlStateNormal];
     [button setTitleColor:[UIColor colorWithRed:50.0/255 green:50.0/255 blue:255.0/255 alpha:1.0] forState:UIControlStateHighlighted];
     [button setTitleColor:[UIColor lightGrayColor] forState:UIControlStateDisabled];
@@ -20,8 +29,8 @@
 
 - (void)tappedPayPalCheckout:(UIButton *)sender {
     self.progressBlock(@"Tapped PayPal - initiating checkout using BTPayPalDriver");
-
-    [sender setTitle:@"Processing..." forState:UIControlStateDisabled];
+    self.infoTextView.text = @"";
+    [sender setTitle:NSLocalizedString(@"Processing...", nil) forState:UIControlStateDisabled];
     [sender setEnabled:NO];
 
     BTPayPalDriver *driver = [[BTPayPalDriver alloc] initWithAPIClient:self.apiClient];
@@ -70,6 +79,7 @@
 }
 
 - (void)paymentDriver:(__unused id)driver requestsDismissalOfViewController:(UIViewController *)viewController {
+    self.infoTextView.text = NSLocalizedString(@"DismissalOfViewController Called", nil);
     [viewController dismissViewControllerAnimated:YES completion:nil];
 }
 

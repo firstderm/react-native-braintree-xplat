@@ -1,4 +1,5 @@
-#import "BTIntegrationTestsHelper.h"
+#import "BTNonceValidationHelper.h"
+#import "IntegrationTests-Swift.h"
 #import <BraintreeCore/BraintreeCore.h>
 #import <BraintreeCard/BraintreeCard.h>
 #import <Expecta/Expecta.h>
@@ -17,10 +18,30 @@
     XCTestExpectation *expectation = [self expectationWithDescription:@"Tokenize card"];
     [client tokenizeCard:card completion:^(BTCardNonce * _Nullable tokenizedCard, NSError * _Nullable error) {
         expect(tokenizedCard.nonce.isANonce).to.beTruthy();
+        expect(tokenizedCard.threeDSecureInfo.wasVerified).to.beFalsy();
         expect(error).to.beNil();
         [expectation fulfill];
     }];
     
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+}
+
+- (void)testTokenizeCard_whenCardIsInvalidAndValidationIsEnabled_failsWithExpectedValidationError {
+    BTAPIClient *apiClient = [[BTAPIClient alloc] initWithAuthorization:SANDBOX_CLIENT_TOKEN];
+    BTCardClient *client = [[BTCardClient alloc] initWithAPIClient:apiClient];
+    BTCard *card = [[BTCard alloc] initWithNumber:@"123" expirationMonth:@"12" expirationYear:Helpers.sharedInstance.futureYear cvv:nil];
+    card.shouldValidate = YES;
+
+    XCTestExpectation *expectation = [self expectationWithDescription:@"Tokenize card"];
+    [client tokenizeCard:card completion:^(BTCardNonce * _Nullable tokenizedCard, NSError * _Nullable error) {
+        XCTAssertNil(tokenizedCard);
+        XCTAssertEqualObjects(error.domain, BTCardClientErrorDomain);
+        XCTAssertEqual(error.code, BTCardClientErrorTypeCustomerInputInvalid);
+        XCTAssertEqualObjects(error.localizedDescription, @"Input is invalid");
+        XCTAssertEqualObjects(error.localizedFailureReason, @"Credit card number must be 12-19 digits");
+        [expectation fulfill];
+    }];
+
     [self waitForExpectationsWithTimeout:5 handler:nil];
 }
 
@@ -32,6 +53,18 @@
     XCTestExpectation *expectation = [self expectationWithDescription:@"Tokenize card"];
     [client tokenizeCard:card completion:^(BTCardNonce * _Nullable tokenizedCard, NSError * _Nullable error) {
         expect(tokenizedCard.nonce.isANonce).to.beTruthy();
+        expect(tokenizedCard.binData.prepaid).toNot.beNil();
+        expect(tokenizedCard.binData.healthcare).toNot.beNil();
+        expect(tokenizedCard.binData.debit).toNot.beNil();
+        expect(tokenizedCard.binData.durbinRegulated).toNot.beNil();
+        expect(tokenizedCard.binData.commercial).toNot.beNil();
+        expect(tokenizedCard.binData.payroll).toNot.beNil();
+        expect(tokenizedCard.binData.issuingBank).toNot.beNil();
+        expect(tokenizedCard.binData.countryOfIssuance).toNot.beNil();
+        expect(tokenizedCard.binData.productId).toNot.beNil();
+        expect(tokenizedCard.threeDSecureInfo.liabilityShiftPossible).to.beFalsy();
+        expect(tokenizedCard.threeDSecureInfo.liabilityShifted).to.beFalsy();
+        expect(tokenizedCard.threeDSecureInfo.wasVerified).to.beFalsy();
         expect(error).to.beNil();
         [expectation fulfill];
     }];
@@ -68,6 +101,7 @@
     XCTestExpectation *expectation = [self expectationWithDescription:@"Tokenize card"];
     [client tokenizeCard:card completion:^(BTCardNonce * _Nullable tokenizedCard, NSError * _Nullable error) {
         expect(tokenizedCard.nonce.isANonce).to.beTruthy();
+        expect(tokenizedCard.threeDSecureInfo.wasVerified).to.beFalsy();
         expect(error).to.beNil();
         [expectation fulfill];
     }];
@@ -75,13 +109,46 @@
     [self waitForExpectationsWithTimeout:5 handler:nil];
 }
 
+- (void)testTokenizeCard_whenUsingVersionThreeClientTokenAndCardHasValidationEnabledAndCardIsValid_tokenizesSuccessfully {
+    BTAPIClient *apiClient = [[BTAPIClient alloc] initWithAuthorization:SANDBOX_CLIENT_TOKEN_VERSION_3];
+    BTCardClient *client = [[BTCardClient alloc] initWithAPIClient:apiClient];
+    BTCard *card = [self validCard];
+    card.shouldValidate = YES;
+    
+    XCTestExpectation *expectation = [self expectationWithDescription:@"Tokenize card"];
+    [client tokenizeCard:card completion:^(BTCardNonce * _Nullable tokenizedCard, NSError * _Nullable error) {
+        expect(tokenizedCard.nonce.isANonce).to.beTruthy();
+        expect(tokenizedCard.threeDSecureInfo.wasVerified).to.beFalsy();
+        expect(error).to.beNil();
+        [expectation fulfill];
+    }];
+    
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+}
+
+- (void)testTokenizeCard_withCVVOnly_tokenizesSuccessfully {
+    BTAPIClient *apiClient = [[BTAPIClient alloc] initWithAuthorization:SANDBOX_CLIENT_TOKEN_VERSION_3];
+    BTCardClient *client = [[BTCardClient alloc] initWithAPIClient:apiClient];
+    BTCard *card = [[BTCard alloc] init];
+    card.cvv = @"123";
+
+    XCTestExpectation *expectation = [self expectationWithDescription:@"Tokenize card"];
+    [client tokenizeCard:card completion:^(BTCardNonce * _Nullable tokenizedCard, NSError * _Nullable error) {
+        expect(tokenizedCard.nonce.isANonce).to.beTruthy();
+        expect(error).to.beNil();
+        [expectation fulfill];
+    }];
+
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+}
+
 #pragma mark - Helpers
 
 - (BTCard *)invalidCard {
     BTCard *card = [[BTCard alloc] init];
-    card.number = @"INVALID_CARD";
+    card.number = @"123123";
     card.expirationMonth = @"XX";
-    card.expirationYear = @"YYYY";
+    card.expirationYear = @"XXXX";
     return card;
 }
 
@@ -89,7 +156,7 @@
     BTCard *card = [[BTCard alloc] init];
     card.number = @"4111111111111111";
     card.expirationMonth = @"12";
-    card.expirationYear = @"2018";
+    card.expirationYear = Helpers.sharedInstance.futureYear;
     return card;
 }
 

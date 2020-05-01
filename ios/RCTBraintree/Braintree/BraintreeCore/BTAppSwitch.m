@@ -5,6 +5,8 @@ NSString * const BTAppSwitchWillSwitchNotification = @"com.braintreepayments.BTA
 NSString * const BTAppSwitchDidSwitchNotification = @"com.braintreepayments.BTAppSwitchDidSwitchNotification";
 NSString * const BTAppSwitchWillProcessPaymentInfoNotification = @"com.braintreepayments.BTAppSwitchWillProcessPaymentInfoNotification";
 NSString * const BTAppSwitchNotificationTargetKey = @"BTAppSwitchNotificationTargetKey";
+NSString * const BTAppContextWillSwitchNotification = @"com.braintreepayments.BTAppContextWillSwitchNotification";
+NSString * const BTAppContextDidReturnNotification = @"com.braintreepayments.BTAppContextDidReturnNotification";
 
 @interface BTAppSwitch ()
 
@@ -35,20 +37,33 @@ NSString * const BTAppSwitchNotificationTargetKey = @"BTAppSwitchNotificationTar
     [BTAppSwitch sharedInstance].returnURLScheme = returnURLScheme;
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 90000
 + (BOOL)handleOpenURL:(NSURL *)url options:(NSDictionary *)options {
-    return [[[self class] sharedInstance] handleOpenURL:url sourceApplication:options[UIApplicationOpenURLOptionsSourceApplicationKey]];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    if (@available(iOS 9.0, *)) {
+        return [[BTAppSwitch sharedInstance] handleOpenURL:url sourceApplication:options[UIApplicationOpenURLOptionsSourceApplicationKey]];
+    } else {
+        return [[BTAppSwitch sharedInstance] handleOpenURL:url sourceApplication:@""];
+    }
+#pragma clang diagnostic pop
 }
-#else
-+ (BOOL)handleOpenURL:(NSURL *)url options:(__unused NSDictionary *)options {
-    return [[[self class] sharedInstance] handleOpenURL:url sourceApplication:nil];
-}
-#endif
 
 + (BOOL)handleOpenURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication {
-    return [[[self class] sharedInstance] handleOpenURL:url sourceApplication:sourceApplication];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return [[BTAppSwitch sharedInstance] handleOpenURL:url sourceApplication:sourceApplication];
+#pragma clang diagnostic pop
 }
 
++ (BOOL)handleOpenURLContext:(UIOpenURLContext *)URLContext API_AVAILABLE(ios(13.0)) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return [[BTAppSwitch sharedInstance] handleOpenURL:URLContext.URL sourceApplication:URLContext.options.sourceApplication];
+#pragma clang diagnostic pop
+}
+
+// NEXT_MAJOR_VERSION Remove this method from public header, but continue using it internally.
+// Once removed, delete the code to ignore deprecation warnings (above).
 - (BOOL)handleOpenURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication {
     for (Class<BTAppSwitchHandler> handlerClass in self.appSwitchHandlers) {
         if ([handlerClass canHandleAppSwitchReturnURL:url sourceApplication:sourceApplication]) {

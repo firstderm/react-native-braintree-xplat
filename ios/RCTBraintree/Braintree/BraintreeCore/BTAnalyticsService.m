@@ -13,9 +13,9 @@
 
 @property (nonatomic, copy) NSString *kind;
 
-@property (nonatomic, assign) long timestamp;
+@property (nonatomic, assign) uint64_t timestamp;
 
-+ (nonnull instancetype)event:(nonnull NSString *)eventKind withTimestamp:(long)timestamp;
++ (nonnull instancetype)event:(nonnull NSString *)eventKind withTimestamp:(uint64_t)timestamp;
 
 /// Event serialized to JSON
 - (nonnull NSDictionary *)json;
@@ -24,7 +24,7 @@
 
 @implementation BTAnalyticsEvent
 
-+ (instancetype)event:(NSString *)eventKind withTimestamp:(long)timestamp {
++ (instancetype)event:(NSString *)eventKind withTimestamp:(uint64_t)timestamp {
     BTAnalyticsEvent *event = [[BTAnalyticsEvent alloc] init];
     event.kind = eventKind;
     event.timestamp = timestamp;
@@ -32,7 +32,7 @@
 }
 
 - (NSString *)description {
-    return [NSString stringWithFormat:@"%@ at %ld", self.kind, (long)self.timestamp];
+    return [NSString stringWithFormat:@"%@ at %llu", self.kind, (uint64_t)self.timestamp];
 }
 
 - (NSDictionary *)json {
@@ -129,13 +129,17 @@ NSString * const BTAnalyticsServiceErrorDomain = @"com.braintreepayments.BTAnaly
 #pragma mark - Public methods
 
 - (void)sendAnalyticsEvent:(NSString *)eventKind {
-    [self enqueueEvent:eventKind];
-    [self checkFlushThreshold];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self enqueueEvent:eventKind];
+        [self checkFlushThreshold];
+    });
 }
 
 - (void)sendAnalyticsEvent:(NSString *)eventKind completion:(__unused void(^)(NSError *error))completionBlock {
-    [self enqueueEvent:eventKind];
-    [self flush:completionBlock];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self enqueueEvent:eventKind];
+        [self flush:completionBlock];
+    });
 }
 
 - (void)flush:(void (^)(NSError *))completionBlock {
@@ -159,6 +163,9 @@ NSString * const BTAnalyticsServiceErrorDomain = @"com.braintreepayments.BTAnaly
                 self.http = [[BTHTTP alloc] initWithBaseURL:analyticsURL authorizationFingerprint:self.apiClient.clientToken.authorizationFingerprint];
             } else if (self.apiClient.tokenizationKey) {
                 self.http = [[BTHTTP alloc] initWithBaseURL:analyticsURL tokenizationKey:self.apiClient.tokenizationKey];
+            } else if (self.apiClient.payPalUAT) {
+                self.http = [[BTHTTP alloc] initWithBaseURL:analyticsURL authorizationFingerprint:self.apiClient.payPalUAT.token];
+                return;
             }
             if (!self.http) {
                 NSError *error = [NSError errorWithDomain:BTAnalyticsServiceErrorDomain code:BTAnalyticsServiceErrorTypeInvalidAPIClient userInfo:@{ NSLocalizedDescriptionKey : @"API client must have client token or tokenization key" }];
@@ -178,14 +185,21 @@ NSString * const BTAnalyticsServiceErrorDomain = @"com.braintreepayments.BTAnaly
                 if (completionBlock) completionBlock(nil);
                 return;
             }
-            
+
+            BOOL willPostAnalyticsEvent = NO;
+
             for (NSString *sessionID in self.analyticsSessions.allKeys) {
                 BTAnalyticsSession *session = self.analyticsSessions[sessionID];
-                
+                if (session.events.count == 0) {
+                    continue;
+                }
+
+                willPostAnalyticsEvent = YES;
+
                 NSMutableDictionary *metadataParameters = [NSMutableDictionary dictionary];
                 [metadataParameters addEntriesFromDictionary:session.metadataParameters];
                 metadataParameters[@"sessionId"] = session.sessionID;
-                metadataParameters[@"integration"] = session.integration;
+                metadataParameters[@"integrationType"] = session.integration;
                 metadataParameters[@"source"] = session.source;
                 
                 NSMutableDictionary *postParameters = [NSMutableDictionary dictionary];
@@ -200,14 +214,19 @@ NSString * const BTAnalyticsServiceErrorDomain = @"com.braintreepayments.BTAnaly
                 if (self.apiClient.tokenizationKey) {
                     postParameters[@"tokenization_key"] = self.apiClient.tokenizationKey;
                 }
+
+                [session.events removeAllObjects];
+
                 [self.http POST:@"/" parameters:postParameters completion:^(__unused BTJSON *body, __unused NSHTTPURLResponse *response, NSError *error) {
-                    if (!error) {
-                        [self.analyticsSessions removeObjectForKey:sessionID];
-                    } else {
+                    if (error != nil) {
                         [[BTLogger sharedLogger] warning:@"Failed to flush analytics events: %@", error.localizedDescription];
                     }
                     if (completionBlock) completionBlock(error);
                 }];
+            }
+
+            if (!willPostAnalyticsEvent && completionBlock) {
+                completionBlock(nil);
             }
         });
     }];
@@ -237,8 +256,8 @@ NSString * const BTAnalyticsServiceErrorDomain = @"com.braintreepayments.BTAnaly
 #pragma mark - Helpers
 
 - (void)enqueueEvent:(NSString *)eventKind {
-    long timestampInSeconds = round([[NSDate date] timeIntervalSince1970]);
-    BTAnalyticsEvent *event = [BTAnalyticsEvent event:eventKind withTimestamp:timestampInSeconds];
+    uint64_t timestampInMilliseconds = ([[NSDate date] timeIntervalSince1970] * 1000);
+    BTAnalyticsEvent *event = [BTAnalyticsEvent event:eventKind withTimestamp:timestampInMilliseconds];
 
     BTAnalyticsSession *session = [BTAnalyticsSession sessionWithID:self.apiClient.metadata.sessionId
                                                              source:self.apiClient.metadata.sourceString
@@ -247,12 +266,12 @@ NSString * const BTAnalyticsServiceErrorDomain = @"com.braintreepayments.BTAnaly
         [[BTLogger sharedLogger] warning:@"Missing analytics session metadata - will not send event %@", event.kind];
         return;
     }
-    
+
     dispatch_async(self.sessionsQueue, ^{
         if (!self.analyticsSessions[session.sessionID]) {
             self.analyticsSessions[session.sessionID] = session;
         }
-        
+
         [self.analyticsSessions[session.sessionID].events addObject:event];
     });
 }
@@ -265,7 +284,7 @@ NSString * const BTAnalyticsServiceErrorDomain = @"com.braintreepayments.BTAnaly
             eventCount += analyticsSession.events.count;
         }
     });
-    
+
     if (eventCount >= self.flushThreshold) {
         [self flush:nil];
     }

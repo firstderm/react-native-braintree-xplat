@@ -1,58 +1,40 @@
 #import "BraintreeDemoAppDelegate.h"
-#import "BraintreeDemoSettings.h"
-#import <HockeySDK/HockeySDK.h>
+#import "BraintreeDemoDemoContainmentViewController.h"
 #import <BraintreeCore/BraintreeCore.h>
 
-#if DEBUG
-#import <FLEX/FLEXManager.h>
-#endif
+#import "Demo-Swift.h"
 
 NSString *BraintreeDemoAppDelegatePaymentsURLScheme = @"com.braintreepayments.Demo.payments";
 
 @implementation BraintreeDemoAppDelegate
 
 - (BOOL)application:(__unused UIApplication *)application didFinishLaunchingWithOptions:(__unused NSDictionary *)launchOptions {
-    [[BITHockeyManager sharedHockeyManager] configureWithIdentifier:@"7134982f3df6419a0eb52b16e7d6d175"];
-    [[BITHockeyManager sharedHockeyManager] startManager];
-    [[BITHockeyManager sharedHockeyManager].authenticator authenticateInstallation];
-    if ([[[NSProcessInfo processInfo] arguments] containsObject:@"-enableUpdateCheck"]) {
-        [[BITHockeyManager sharedHockeyManager] updateManager].checkForUpdateOnLaunch = YES;
-    } else {
-        [[BITHockeyManager sharedHockeyManager] updateManager].checkForUpdateOnLaunch = NO;
-    }
-    [[BITHockeyManager sharedHockeyManager] updateManager].updateSetting = BITUpdateCheckDaily;
-    
     [self setupAppearance];
     [self registerDefaultsFromSettings];
 
     [BTAppSwitch setReturnURLScheme:BraintreeDemoAppDelegatePaymentsURLScheme];
+    
+    BraintreeDemoDemoContainmentViewController *rootViewController = [[BraintreeDemoDemoContainmentViewController alloc] init];
+    UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:rootViewController];
+    self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+    self.window.rootViewController = navigationController;
+    [self.window makeKeyAndVisible];
+
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setBool:YES forKey:@"magnes.debug.mode"];
 
     return YES;
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 90000
 - (BOOL)application:(__unused UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<NSString *,id> *)options {
     if ([[url.scheme lowercaseString] isEqualToString:[BraintreeDemoAppDelegatePaymentsURLScheme lowercaseString]]) {
         return [BTAppSwitch handleOpenURL:url options:options];
     }
     return YES;
 }
-#endif
-
-// Deprecated in iOS 9, but necessary to support < versions
-- (BOOL)application:(__unused UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(__unused id)annotation {
-    if ([[url.scheme lowercaseString] isEqualToString:[BraintreeDemoAppDelegatePaymentsURLScheme lowercaseString]]) {
-        return [BTAppSwitch handleOpenURL:url sourceApplication:sourceApplication];
-    }
-    return YES;
-}
 
 - (void)setupAppearance {
     UIColor *pleasantGray = [UIColor colorWithWhite:42/255.0f alpha:1.0f];
-
-    [[UINavigationBar appearance] setTintColor:[UIColor whiteColor]];
-    [[UINavigationBar appearance] setBarTintColor:pleasantGray];
-    [[UINavigationBar appearance] setBarStyle:UIBarStyleBlackTranslucent];
 
     [[UIToolbar appearance] setBarTintColor:pleasantGray];
     [[UIToolbar appearance] setBarStyle:UIBarStyleBlackTranslucent];
@@ -61,15 +43,17 @@ NSString *BraintreeDemoAppDelegatePaymentsURLScheme = @"com.braintreepayments.De
 - (void)registerDefaultsFromSettings {
     // Check for testing arguments
     if ([[[NSProcessInfo processInfo] arguments] containsObject:@"-EnvironmentSandbox"]) {
-        [[NSUserDefaults standardUserDefaults] setInteger:BraintreeDemoTransactionServiceEnvironmentSandboxBraintreeSampleMerchant forKey:BraintreeDemoSettingsEnvironmentDefaultsKey];
+        [[NSUserDefaults standardUserDefaults] setInteger:BraintreeDemoEnvironmentSandbox forKey:BraintreeDemoSettings.EnvironmentDefaultsKey];
     }else if ([[[NSProcessInfo processInfo] arguments] containsObject:@"-EnvironmentProduction"]) {
-        [[NSUserDefaults standardUserDefaults] setInteger:BraintreeDemoTransactionServiceEnvironmentProductionExecutiveSampleMerchant forKey:BraintreeDemoSettingsEnvironmentDefaultsKey];
+        [[NSUserDefaults standardUserDefaults] setInteger:BraintreeDemoEnvironmentProduction forKey:BraintreeDemoSettings.EnvironmentDefaultsKey];
     }
     
     if ([[[NSProcessInfo processInfo] arguments] containsObject:@"-TokenizationKey"]) {
         [[NSUserDefaults standardUserDefaults] setBool:TRUE forKey:@"BraintreeDemoUseTokenizationKey"];
     }else if ([[[NSProcessInfo processInfo] arguments] containsObject:@"-ClientToken"]) {
         [[NSUserDefaults standardUserDefaults] setBool:FALSE forKey:@"BraintreeDemoUseTokenizationKey"];
+        // Use random users for testing with Client Tokens
+        [[NSUserDefaults standardUserDefaults] setObject:@"" forKey:@"BraintreeDemoCustomerIdentifier"];
     }
     
     [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"BraintreeDemoSettingsAuthorizationOverride"];
@@ -81,6 +65,12 @@ NSString *BraintreeDemoAppDelegatePaymentsURLScheme = @"com.braintreepayments.De
             NSString* testIntegration = [arg stringByReplacingOccurrencesOfString:@"-Authorization:" withString:@""];
             [[NSUserDefaults standardUserDefaults] setObject:testIntegration forKey:@"BraintreeDemoSettingsAuthorizationOverride"];
         }
+    }
+    
+    if ([[[NSProcessInfo processInfo] arguments] containsObject:@"-ClientTokenVersion2"]) {
+        [[NSUserDefaults standardUserDefaults] setObject:@"2" forKey:@"BraintreeDemoSettingsClientTokenVersionDefaultsKey"];
+    }else if ([[[NSProcessInfo processInfo] arguments] containsObject:@"-ClientTokenVersion3"]) {
+        [[NSUserDefaults standardUserDefaults] setObject:@"3" forKey:@"BraintreeDemoSettingsClientTokenVersionDefaultsKey"];
     }
     // End checking for testing arguments
     
@@ -104,16 +94,5 @@ NSString *BraintreeDemoAppDelegatePaymentsURLScheme = @"com.braintreepayments.De
     
     [[NSUserDefaults standardUserDefaults] registerDefaults:defaultsToRegister];
 }
-
-
-#if DEBUG
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
-    [super touchesBegan:touches withEvent:event];
-    CGPoint location = [[[event allTouches] anyObject] locationInView:[self window]];
-    if(location.y > 0 && location.y < [[UIApplication sharedApplication] statusBarFrame].size.height) {
-        [[FLEXManager sharedManager] showExplorer];
-    }
-}
-#endif
 
 @end

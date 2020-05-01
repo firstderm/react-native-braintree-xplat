@@ -4,40 +4,72 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class BTHTTPResponse, BTClientToken;
+@class BTHTTPResponse, BTClientToken, BTPayPalUAT;
 
-/// Performs HTTP methods on the Braintree Client API
+/**
+ Performs HTTP methods on the Braintree Client API
+*/
 @interface BTHTTP : NSObject<NSCopying>
 
-/// An optional array of pinned certificates, each an NSData instance
-/// consisting of DER encoded x509 certificates
+/**
+ An optional array of pinned certificates, each an NSData instance consisting of DER encoded x509 certificates
+*/
 @property (nonatomic, nullable, strong) NSArray<NSData *> *pinnedCertificates;
 
-/// Initialize `BTHTTP` with the authorization fingerprint from a client token
-///
-/// @param URL The base URL for the Braintree Client API
-/// @param authorizationFingerprint The authorization fingerprint HMAC from a client token
+/**
+ Initialize `BTHTTP` with the URL for the Braintree API
+ 
+ @param URL The base URL for the Braintree Client API
+ */
+- (instancetype)initWithBaseURL:(NSURL *)URL NS_DESIGNATED_INITIALIZER;
+
+/**
+ Initialize `BTHTTP` with the authorization fingerprint from a client token
+
+ @param URL The base URL for the Braintree Client API
+ @param authorizationFingerprint The authorization fingerprint HMAC from a client token
+*/
 - (instancetype)initWithBaseURL:(NSURL *)URL
-       authorizationFingerprint:(NSString *)authorizationFingerprint NS_DESIGNATED_INITIALIZER;
+       authorizationFingerprint:(NSString *)authorizationFingerprint;
 
-/// Initialize `BTHTTP` with a tokenization key
-///
-/// @param URL The base URL for the Braintree Client API
-/// @param tokenizationKey A tokenization key
-- (instancetype)initWithBaseURL:(NSURL *)URL tokenizationKey:(NSString *)tokenizationKey NS_DESIGNATED_INITIALIZER;
+/**
+ Initialize `BTHTTP` with a tokenization key
 
-/// A convenience initializer to initialize `BTHTTP` with a client token
-///
-/// @param clientToken A client token
+ @param URL The base URL for the Braintree Client API
+ @param tokenizationKey A tokenization key
+*/
+- (instancetype)initWithBaseURL:(NSURL *)URL tokenizationKey:(NSString *)tokenizationKey;
+
+/**
+ A convenience initializer to initialize `BTHTTP` with a client token
+
+ @param clientToken A client token
+*/
 - (instancetype)initWithClientToken:(BTClientToken *)clientToken;
 
+/**
+ A convenience initializer to initialize `BTHTTP` with a PayPal UAT
+
+ @param payPalUAT A PayPal UAT
+*/
+- (instancetype)initWithPayPalUAT:(BTPayPalUAT *)payPalUAT;
+
+- (NSString *)userAgentString;
+- (NSString *)acceptString;
+- (NSString *)acceptLanguageString;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability"
 - (nullable instancetype)init __attribute__((unavailable("Please use initWithBaseURL:authorizationFingerprint: instead.")));
+#pragma clang diagnostic pop
 
 // For testing
 @property (nonatomic, strong) NSURLSession *session;
 @property (nonatomic, readonly, strong) NSURL *baseURL;
 
-/// Queue that callbacks are dispatched onto, main queue if not otherwise specified
+/**
+ Queue that callbacks are dispatched onto, main queue if not otherwise specified
+*/
 @property (nonatomic, strong) dispatch_queue_t dispatchQueue;
 
 - (void)GET:(NSString *)endpoint
@@ -67,6 +99,16 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)DELETE:(NSString *)endpoint
     parameters:(nullable NSDictionary *)parameters
     completion:(nullable void(^)(BTJSON * _Nullable body, NSHTTPURLResponse * _Nullable response, NSError * _Nullable error))completionBlock;
+
+- (void)handleRequestCompletion:(nullable NSData *)data
+                       response:(nullable NSURLResponse *)response
+                          error:(nullable NSError *)error
+                completionBlock:(void(^)(BTJSON *body, NSHTTPURLResponse *response, NSError *error))completionBlock;
+
+- (void)callCompletionBlock:(void(^)(BTJSON *body, NSHTTPURLResponse *response, NSError *error))completionBlock
+                       body:(nullable BTJSON *)jsonBody
+                   response:(nullable NSHTTPURLResponse *)response
+                      error:(nullable NSError *)error;
 
 @end
 

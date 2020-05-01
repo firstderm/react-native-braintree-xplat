@@ -1,6 +1,363 @@
 # Braintree iOS SDK Release Notes
 
+## 4.33.0 (2020-04-16)
+
+* Add support for iOS 13 SceneDelegate to `BTAppSwitch`
+* Add `lastFour` property to `BTCardNonce`
+* Make `BTURLUtils.h` public
+* Add support for authorizing the Braintree SDK with a `PayPalUAT` (universal access token)
+* Remove `AddressBook.framework` from Podspec (thanks @ignotusverum)
+
+## 4.32.1 (2020-02-21)
+
+* Fix crash when `ThreeDSecureRequest` `amount` field is set to NaN (resolves #507)
+* Update CardinalMobile.framework to v2.2.2-1 for Carthage users
+
+## 4.32.0 (2020-02-18)
+
+* Update CardinalMobile.framework to v2.2.2-1
+* Update PPDataCollector
+
+## 4.31.0 (2020-01-15)
+
+* Add support for basic UI customization of 3DS1 flows. See `BTThreeDSecureV1UICustomization`.
+
+## 4.30.2 (2019-11-15)
+
+* Updated CardinalMobile.framework to v2.2.1-2
+
+## 4.30.1 (2019-11-04)
+
+* Updated CardinalMobile.framework to v2.2.1
+
+## 4.30.0 (2019-10-01)
+
+* Fix nullability annotations on `BTPostalAddress` fields (resolves #472)
+* Add ability to request `AuthenticationInsight` when tokenizing a credit card, which can be used to make a decision about whether to perform 3D Secure verification
+* Set error message on `BTThreeDSecureInfo` when 3D Secure 2.0 challenge fails
+
+## 4.29.0 (2019-09-19)
+
+* Fix issue when returning from the Venmo app on iOS13
+* Fix crash and return error when `threeDSecureRequest.amount` is `nil` and 3DS v1 is requested
+
+## 4.28.0 (2019-09-05)
+
+* Add ability to customize UI for 3D Secure challenge views
+* Add authentication and lookup transaction status information to BTThreeDSecureInfo
+
+## 4.27.1 (2019-08-29)
+
+* Fix url parsing bug (thanks @pedrocid)
+
+## 4.27.0 (2019-08-15)
+
+* Remove unneeded pre-processor directives
+* Added new fields to BTThreeDSecureInfo
+
+## 4.26.3 (2019-07-31)
+
+* Fixed issue with Carthage binary spec for CardinalMobile
+
+## 4.26.2 (2019-07-31)
+
+* Add support for CardinalMobile binary only framework when using Carthage
+
+## 4.26.1 (2019-07-26)
+
+* Update CardinalMobile to v2.1.4-2
+  * Fix issue distributing to App Store
+
+## 4.26.0 (2019-07-26)
+
+* Send analytics timestamps in milliseconds
+* Fix crash on apps with deployment targets without minor version (thanks @squall09s)
+* Add additional fields to BTThreeDSecureInfo
+
+## 4.25.1 (2019-07-15)
+
+* Correct importing of BTConfiguration+ThreeDSecure (thanks @ejensen)
+* Add missing header documentation for BTThreeDSecureLookup
+
+## 4.25.0 (2019-07-12)
+
+* Update CardinalMobile to v2.1.4
+  * Remove use of `advertisingIdentifier`
+
+## 4.24.0 (2019-07-09)
+
+* Add 3DS 2 Support
+* Update 3DS redirect to newest version
+* Update platform to iOS 8.0 in podspec
+* Remove location data from analytics collection
+
+## 4.23.2 (2019-06-20)
+
+* Fix issue that caused a crash when 3DS auth response is invalid
+
+## 4.23.1 (2019-06-17)
+
+* Update analytics parameters
+* Update local payment endpoint
+
+## 4.23.0 (2019-03-07)
+
+* Add Hiper and Hipercard support
+
+## 4.22.0 (2019-01-30)
+
+* Add support for `BTPayPalLineItem`
+* Fix build issue for Demo app
+
+## 4.21.0 (2018-12-12)
+
+* Fix occasional crash in `libPPRiskComponent.a`
+
+## 4.20.2 (2018-11-16)
+
+* Fix minimum iOS version in `libPPRiskComponent.a`
+
+## 4.20.1 (2018-11-14)
+
+* Update `libPPRiskComponent.a` to latest version
+
+## 4.20.0 (2018-10-30)
+
+* Luhn validate UnionPay cards
+  * Luhn-invalid UnionPay cards were previously rejected server side rather than client side
+* Fix retain cycle when ovewriting an NSURLSession
+* Update `PayPalDataCollector` to include latest `libPPRiskComponent.a`
+
+## 4.19.0 (2018-09-13)
+
+* Update properties on BTLocalPaymentRequest
+
+## 4.18.0 (2018-08-31)
+
+* Add optional merchantAccountId to BTPayPalRequest
+* Add openVenmoAppPageInAppStore to BTVenmoDriver
+* Add BTLocalPayment to BTPaymentFlow
+  * Replaces the BTIdeal integration
+
+## 4.17.0 (2018-07-17)
+
+* Update GraphQL URLs
+
+## 4.16.0 (2018-06-15)
+
+* Add shippingAddressEditable flag to BTPayPalRequest
+
+## 4.15.2 (2018-06-13)
+
+* Fix issue where address override was not set for PayPal billing agreements
+
+## 4.15.1 (2018-06-07)
+
+* Use angled brackets for BraintreeVenmo header imports (thanks @vicpenap)
+
+## 4.15.0 (2018-04-30)
+
+* 3D Secure
+  * Add support for American Express SafeKey params
+
+## 4.14.0 (2018-04-03)
+
+* Ensure animations are consistent for PayPal SFSafariViewController flow (thanks @nudge)
+* Update header documentation
+* Add BTAppSwitchDelegate events `appContextWillSwitch` and `appContextDidReturn`
+  * Addresses the issue that notifications were inconsistent across app switches [#383](https://github.com/braintree/braintree_ios/issues/383)
+
+## 4.13.0 (2018-03-20)
+
+* Update `PayPalDataCollector` to include latest `libPPRiskComponent.a`
+
+## 4.12.0 (2018-03-06)
+
+* Add support for Venmo profiles
+* Fix demo app issue with CocoaPods
+
+## 4.11.0 (2018-02-05)
+
+* Fix code for implicit retain self warning (thanks @keith)
+
+## 4.10.1 (2018-02-01)
+
+* Add BTThreeDSecureInfo to BTCardNonce
+* Use angled brackets for BraintreePayPal header imports (thanks @nudge)
+
+## 4.10.0 (2017-12-08)
+
+* Add iDEAL support
+* Add new 3D Secure integration with browser support
+* Fix issue where ApplePay nonces were not having their default property set (Thanks @rksaraf)
+
+## 4.9.6 (2017-11-13)
+
+* Fix issue where Venmo attempted to vault when using a Tokenization Key
+
+## 4.9.5 (2017-11-03)
+
+* Fix a timeout issue on configuration fetch
+* Static analysis fixes
+* Add BraintreeAmericanExpress module and getRewardsBalance method
+
+## 4.9.4 (2017-10-02)
+
+* Fix Xcode9 compatibility issues with iOS 7.0
+
+## 4.9.3 (2017-09-28)
+
+* Update Xcode 9 code for availability checking
+* Fix analytics thread issue
+
+## 4.9.2 (2017-09-25)
+
+* Fix Xcode9 build warnings
+* Add additional billing address params to card builder
+  * Country Code Alpha 3
+  * Country Code Numeric
+  * Company
+  * Extended Address
+
+## 4.9.1 (2017-09-20)
+
+* Update libPPRiskComponent to latest version
+
+## 4.9.0 (2017-09-13)
+
+* Add support for `SFAuthenticationSession` for PayPal payments
+
+## 4.8.7 (2017-08-30)
+
+* Add firstName and lastName to BTCard
+
+## 4.8.6 (2017-08-17)
+
+* Add additional bin data to card based payment methods
+
+## 4.8.5 (2017-07-21)
+
+* Fix bug that caused a crash on iOS11 (Beta 3) when using a Tokenization Key in production (Thanks @peterstuart)
+
+## 4.8.4 (2017-06-26)
+
+* Update to Kount 3.2
+* Update Demo to support Xcode9 (Beta 1) and iOS11
+* Update README
+
+## 4.8.3 (2017-05-30)
+
+* Fix Pay with Venmo bug
+
+## 4.8.2 (2017-05-11)
+
+* Add PayPal Credit support to PayPal Billing Agreements flow
+* Add V3 Client Token support
+* Enable client side vaulting of Venmo nonces
+* Fix potential memory leak issue [#312](https://github.com/braintree/braintree_ios/issues/312)
+* Fix bug causing random crashes in 3DS flow [#329](https://github.com/braintree/braintree_ios/issues/329)
+
+## 4.8.1 (2017-04-07)
+
+* Optimize BTAPIClient:initWithAuthorization: when using a client token
+* Fix invalid documentation tags
+
+## 4.8.0 (2017-03-30)
+
+* Enable PayPal Credit
+* Add support for `displayName` and `landing_page_type` PayPal options
+* Fix issue with 3DS error callbacks [#318](https://github.com/braintree/braintree_ios/issues/318)
+* Resolve build error in Xcode 8.3
+
+## 4.7.5 (2017-02-22)
+
+* Fix issue where PayPal correlation_id was not set correctly
+* Add support for custom PayPal authentication handler
+* Update docs to specify Xcode 8+ requirement
+* Fix header import in BTAnalyticsMetadata.m
+* Additional tuning for Travis CI
+
+## 4.7.4 (2017-01-13)
+
+* Update UnitTests to Swift 3
+* Update PayPal header docs
+* Update CocoaDocs and remove styling
+
+## 4.7.3 (2016-11-18)
+
+* Allow `BraintreeCore` to be compatible with App Extensions
+* Fix `BraintreePayPal` use of `queryItems` for iOS 7 compatibility
+* Present SFSafariViewControllers from the top UIViewController via Drop-in to avoid blank SFSafariViewController
+  * Set `BTPaymentRequest` `presentViewControllersFromTop` to `YES` to opt in to this behavior
+* Fix `@param` warning for incorrect argument name
+* Fix CocoaDocs and add styling
+
+## 4.7.2 (2016-11-08)
+
+* Update Apple-Pay
+  * Fix issue when using `BTConfiguration:applePaySupportedNetworks` with `Discover` enabled on devices `<iOS 9`
+  * Add `BTApplePayClient:paymentRequest:` - creates a `PKPaymentRequest` with values from your Braintree Apple Pay configuration
+* Update documentation and README
+
+## 4.7.1 (2016-10-18)
+
+* Update to Kount 3.1
+* Update libPPRiskComponent to latest version
+* Refactored ACKNOWLEDGEMENTS.md with links instead of text
+* Re-add new Drop-In demo from BraintreeDropIn
+* Fix fbinfer warnings
+
+## 4.7.0 (2016-09-23)
+
+* Move `BraintreeDropIn` and `BraintreeUIKit` to a new [separate repository](https://github.com/braintree/braintree-ios-drop-in)
+  to allow cleaner separation and iteration for newer versions of Drop-In.
+  * Please see the new repository for updated integration instructions if you were using the Beta Drop-In Update.
+  * If you were using Drop-In from `BraintreeUI`, you do not have to update. However, you may want to check out the
+    new Drop-In for an updated experience.
+* Fix issue with `DataCollector` setting the merchant ID automatically to configure Kount
+
+## 4.6.1 (2016-09-15)
+
+* Fix conflicting private API name Fixes #265
+* Fix deprecation warnings for Xcode 8 Fixes #267
+* Fix target membership for static library Fixes #264
+* Improve Maestro card number recognition
+
+## 4.6.0 (2016-09-09)
+
+* Fix nullability annotations for Xcode 8 Fixes #260
+* Add `userAction` property to `BTPayPalRequest`
+* (BETA) Updates to `BraintreeDropIn`
+
+## 4.5.0 (2016-08-05)
+
+* Update `DataCollector` API
+  * Add initializer and new data collection methods that take a completion block
+    * New data collection methods use Braintree gateway configuration to configure Kount
+  * Previous API for `BTDataCollector` has been deprecated
+* Remove Venmo user whitelist – all Venmo users may now make merchant purchases using Venmo.
+
+## 4.4.1 (2016-07-22)
+
+* Update and fix issues in `BraintreeDropIn` based on feedback
+* Make more headers public in `BraintreeUIKit`
+* Fix `BraintreeUIKit` module name for Cocoapods
+* Add support for 3D Secure to `BraintreeDropIn` (see Drop-In docs)
+* Update the [Drop-In docs](Docs/Drop-In-Update.md)
+* Add features to support vaulting Venmo when using Drop-In (coming soon)
+
+## 4.4.0 (2016-07-14)
+
+* (BETA) Release of new `BraintreeDropIn` and `BraintreeUIKit` frameworks
+  * `BraintreeDropIn` bundles our new UI components and Braintree API's for a whole new Drop-In experience
+  * UI components, helpers, vector art and localizations are now public and fully accessible via `BraintreeUIKit`
+  * [Learn more about our Drop-In Update](Docs/Drop-In-Update.md)
+  * Note that our legacy Drop-In (`BraintreeUI`) has not changed
+* (BETA) Various updates to the UnionPay component
+* Improve error messages when Braintree gateway returns 422 validation errors
+
 ## 4.3.2 (2016-06-09)
+
 * Update Pay with Venmo to use merchant ID and environment from configuration
 * PayPal Checkout supports an intent option, which can be authorize or sale
   * See `BTPayPalRequest`'s `intent` property
@@ -585,4 +942,3 @@ Thanks for the feedback so far. Keep it coming!
     * Incomplete / unpolished UI
         * Minor UX card validation issues in the card form
         * Drop-in UX flow issues and unaddressed edge cases
-

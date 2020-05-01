@@ -6,10 +6,17 @@
 //
 
 #import "PPOTConfiguration.h"
+#if __has_include("PayPalUtils.h")
 #import "PPOTJSONHelper.h"
 #import "PPOTMacros.h"
 #import "PPOTSimpleKeychain.h"
 #import "PPOTURLSession.h"
+#else
+#import <PayPalUtils/PPOTJSONHelper.h>
+#import <PayPalUtils/PPOTMacros.h>
+#import <PayPalUtils/PPOTSimpleKeychain.h>
+#import <PayPalUtils/PPOTURLSession.h>
+#endif
 #if __has_include("BraintreeCore.h")
 #import "BTLogger_Internal.h"
 #else
@@ -343,7 +350,7 @@ typedef void (^PPOTConfigurationFileDownloadCompletionBlock)(NSData *fileData);
 
 #pragma mark - debug-only stuff
 
-#if DEBUG
+#ifdef DEBUG
 static BOOL alwaysUseHardcodedConfiguration = NO;
 
 + (void)useHardcodedConfiguration:(BOOL)useHardcodedConfiguration {
@@ -359,6 +366,8 @@ static BOOL alwaysUseHardcodedConfiguration = NO;
 
     static int nobodyIsWorkingOnThisAtTheMoment = 1;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (OSAtomicCompareAndSwapInt(1, 0, &nobodyIsWorkingOnThisAtTheMoment)) {
 
         PPOTConfiguration *currentConfiguration = [PPOTConfiguration fetchPersistentConfiguration];
@@ -379,7 +388,7 @@ static BOOL alwaysUseHardcodedConfiguration = NO;
                 PPOTURLSession *session = [PPOTURLSession sessionWithTimeoutIntervalForRequest:kConfigurationFileDownloadTimeout];
                 [session sendRequest:request
                      completionBlock:^(NSData *data, __attribute__((unused)) NSHTTPURLResponse *response, __attribute__((unused)) NSError *error) {
-#if DEBUG
+#ifdef DEBUG
                          NSString *dataString = nil;
                          if (data) {
                              dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
@@ -401,10 +410,11 @@ static BOOL alwaysUseHardcodedConfiguration = NO;
 
         nobodyIsWorkingOnThisAtTheMoment = 1;
     }
+#pragma clang diagnostic pop
 }
 
 + (PPOTConfiguration *)getCurrentConfiguration {
-#if DEBUG
+#ifdef DEBUG
     if (alwaysUseHardcodedConfiguration) {
         return [self defaultConfiguration];
     }
@@ -426,7 +436,7 @@ static BOOL alwaysUseHardcodedConfiguration = NO;
 #pragma mark - private methods
 
 + (void)initialize {
-#if DEBUG
+#ifdef DEBUG
     NSAssert([PPOTConfiguration defaultConfiguration] != nil, @"otc-config.ios.json is invalid");
 #endif
     if (self == [PPOTConfiguration class]) {
@@ -437,7 +447,7 @@ static BOOL alwaysUseHardcodedConfiguration = NO;
 + (PPOTConfiguration *)defaultConfiguration {
     NSData *defaultConfigurationJSON = [NSData dataWithBytes:configuration_otc_config_ios_json
                                                       length:configuration_otc_config_ios_json_len];
-#if DEBUG
+#ifdef DEBUG
     NSString *str = [[NSString alloc] initWithData:defaultConfigurationJSON encoding:NSUTF8StringEncoding];
     [[BTLogger sharedLogger] debug:@"Using default JSON config %@\n", str];
 #endif
@@ -492,10 +502,9 @@ static BOOL alwaysUseHardcodedConfiguration = NO;
     NSMutableArray *prioritizedRecipes = [NSMutableArray arrayWithCapacity:[recipes count]];
     for (NSDictionary *recipeDictionary in recipes) {
         PPOTConfigurationRecipe *recipe = recipeAdapter(recipeDictionary);
-        if (!recipe) {
-            LOG_ERROR_AND_RETURN_NIL
+        if (recipe) {
+            [prioritizedRecipes addObject:recipe];
         }
-        [prioritizedRecipes addObject:recipe];
     }
     return prioritizedRecipes;
 }

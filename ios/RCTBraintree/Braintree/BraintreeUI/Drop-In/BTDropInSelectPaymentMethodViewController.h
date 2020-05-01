@@ -10,14 +10,14 @@
 
 @protocol BTDropInSelectPaymentMethodViewControllerDelegate;
 
-/// Drop In's payment method selection flow.
+/**
+ Drop In's payment method selection flow.
+*/
 @interface BTDropInSelectPaymentMethodViewController : UITableViewController
 
-//@property (nonatomic, strong) BTClient *client;
 @property (nonatomic, strong) BTAPIClient *client;
 @property (nonatomic, weak) id<BTDropInSelectPaymentMethodViewControllerDelegate> delegate;
 
-// Array of BTPaymentMethodNonce *objects
 @property (nonatomic, strong) NSArray *paymentMethodNonces;
 
 @property (nonatomic, assign) NSInteger selectedPaymentMethodIndex;

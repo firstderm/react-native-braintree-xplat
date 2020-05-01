@@ -42,17 +42,24 @@ typedef void (^PPOTConfigurationCompletionBlock)(PPOTConfiguration *currentConfi
 
 @interface PPOTConfiguration : NSObject <NSCoding>
 
-/// In the background: if the cached configuration is stale, then downloads the latest version.
+/**
+ In the background: if the cached configuration is stale, then downloads the latest version.
+*/
 + (void)updateCacheAsNecessary;
 
-/// Returns the current configuration, either from cache or else the hardcoded default configuration.
+/**
+ Returns the current configuration, either from cache or else the hardcoded default configuration.
+*/
 + (PPOTConfiguration *)getCurrentConfiguration;
 
-/// This method is here only for PPOTConfigurationTest.
-/// Everyone else, please stick to using [PPOTConfiguration getCurrentConfiguration]!!!
+/**
+ This method is here only for PPOTConfigurationTest.
+
+ Everyone else, please stick to using [PPOTConfiguration getCurrentConfiguration]!!!
+*/
 + (PPOTConfiguration *)configurationWithDictionary:(NSDictionary *)dictionary;
 
-#if DEBUG
+#ifdef DEBUG
 + (void)useHardcodedConfiguration:(BOOL)useHardcodedConfiguration;
 #endif
 

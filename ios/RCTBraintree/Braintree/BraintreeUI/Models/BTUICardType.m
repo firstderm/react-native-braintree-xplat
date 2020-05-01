@@ -147,7 +147,7 @@
                                                           formatSpaces:nil];
 
         BTUICardType *maestro = [[BTUICardType alloc] initWithBrand:BTUILocalizedString(CARD_TYPE_MAESTRO)
-                                                           prefixes:@[@"5018", @"5020", @"5038", @"6304", @"6759", @"6761", @"6762", @"6763"]
+                                                           prefixes:@[@"5018", @"5020", @"5038", @"6304", @"6307", @"6759", @"6761", @"6762", @"6763"]
                                                  validNumberLengths:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(12, 8)]
                                                      validCvvLength:3
                                                        formatSpaces:nil];
@@ -209,13 +209,11 @@
 #pragma mark - Validation
 
 - (BOOL)validAndNecessarilyCompleteNumber:(NSString *)number {
-    return (number.length == self.validNumberLengths.lastIndex &&
-            ([BTUIUtil luhnValid:number] || [self.brand isEqualToString:BTUILocalizedString(CARD_TYPE_UNION_PAY)]));
+    return number.length == self.validNumberLengths.lastIndex && [BTUIUtil luhnValid:number];
 }
 
 - (BOOL)validNumber:(NSString *)number {
-    return ([self completeNumber:number] &&
-            ([BTUIUtil luhnValid:number] || [self.brand isEqualToString:BTUILocalizedString(CARD_TYPE_UNION_PAY)]));
+    return ([self completeNumber:number] && [BTUIUtil luhnValid:number]);
 }
 
 - (BOOL)completeNumber:(NSString *)number {

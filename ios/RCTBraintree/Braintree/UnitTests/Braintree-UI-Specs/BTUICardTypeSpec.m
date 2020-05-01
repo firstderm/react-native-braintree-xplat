@@ -41,6 +41,16 @@ describe(@"BTUICardType", ^{
             expect(possibleCardTypes).to.contain([BTUICardType cardTypeForBrand:BTUILocalizedString(CARD_TYPE_MAESTRO)]);
         });
 
+        it(@"should recognize Maestro cards starting with 63", ^{
+            NSArray *possibleCardTypes = [BTUICardType possibleCardTypesForNumber:@"63"];
+            expect(possibleCardTypes).to.contain([BTUICardType cardTypeForBrand:BTUILocalizedString(CARD_TYPE_MAESTRO)]);
+        });
+
+        it(@"should recognize Maestro cards starting with 67", ^{
+            NSArray *possibleCardTypes = [BTUICardType possibleCardTypesForNumber:@"67"];
+            expect(possibleCardTypes).to.contain([BTUICardType cardTypeForBrand:BTUILocalizedString(CARD_TYPE_MAESTRO)]);
+        });
+
         it(@"should recognize the start of a Visa", ^{
             NSArray *possibleCardTypes = [BTUICardType possibleCardTypesForNumber:@"4"];
             expect(possibleCardTypes).to.contain([BTUICardType cardTypeForBrand:BTUILocalizedString(CARD_TYPE_VISA)]);
@@ -161,7 +171,7 @@ describe(@"BTUICardType", ^{
           @[@"4012888888881881", BTUILocalizedString(CARD_TYPE_VISA)],
           @[@"4217651111111119", BTUILocalizedString(CARD_TYPE_VISA)],
           @[@"4500600000000061", BTUILocalizedString(CARD_TYPE_VISA)],
-          @[@"6221234567890123450", BTUILocalizedString(CARD_TYPE_UNION_PAY)],
+          @[@"6221234567890123450", BTUILocalizedString(CARD_TYPE_UNION_PAY)]
           ];
 
         for (NSArray *testCase in braintreeTestCardNumbers) {
@@ -172,13 +182,6 @@ describe(@"BTUICardType", ^{
                 expect([cardType validNumber:testNumber]).to.beTruthy();
             });
         }
-
-        context(@"when card type is Union Pay", ^{
-            it(@"returns true when number is not Luhn valid", ^{
-                BTUICardType *cardType = [BTUICardType cardTypeForBrand:BTUILocalizedString(CARD_TYPE_UNION_PAY)];
-                expect([cardType validNumber:@"6221234567890123451"]).to.beTruthy();
-            });
-        });
     });
 
     describe(@"validAndNecessarilyCompleteNumber", ^{

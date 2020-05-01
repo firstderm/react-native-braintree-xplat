@@ -8,30 +8,39 @@
 /// Retain BTDataCollector for entire lifecycle of view controller
 @property (nonatomic, strong) BTDataCollector *dataCollector;
 @property (nonatomic, strong) UILabel *dataLabel;
+@property (nonatomic, strong) BTAPIClient *apiClient;
 @end
 
 @implementation BraintreeDemoBTDataCollectorViewController
+
+- (instancetype)initWithAuthorization:(NSString *)authorization {
+    if (self = [super initWithAuthorization:authorization]) {
+        _apiClient = [[BTAPIClient alloc] initWithAuthorization:authorization];
+    }
+    
+    return self;
+}
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
 
-    self.title = @"BTDataCollector Protection";
+    self.title = NSLocalizedString(@"BTDataCollector Protection", nil);
 
     UIButton *collectButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [collectButton setTitle:@"Collect All Data" forState:UIControlStateNormal];
+    [collectButton setTitle:NSLocalizedString(@"Collect All Data", nil) forState:UIControlStateNormal];
     [collectButton addTarget:self action:@selector(tappedCollect) forControlEvents:UIControlEventTouchUpInside];
     
     UIButton *collectKountButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [collectKountButton setTitle:@"Collect Kount Data" forState:UIControlStateNormal];
+    [collectKountButton setTitle:NSLocalizedString(@"Collect Kount Data", nil) forState:UIControlStateNormal];
     [collectKountButton addTarget:self action:@selector(tappedCollectKount) forControlEvents:UIControlEventTouchUpInside];
 
     UIButton *collectDysonButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [collectDysonButton setTitle:@"Collect PayPal Data" forState:UIControlStateNormal];
+    [collectDysonButton setTitle:NSLocalizedString(@"Collect PayPal Data", nil) forState:UIControlStateNormal];
     [collectDysonButton addTarget:self action:@selector(tappedCollectDyson) forControlEvents:UIControlEventTouchUpInside];
 
     UIButton *obtainLocationPermissionButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [obtainLocationPermissionButton setTitle:@"Obtain Location Permission" forState:UIControlStateNormal];
+    [obtainLocationPermissionButton setTitle:NSLocalizedString(@"Obtain Location Permission", nil) forState:UIControlStateNormal];
     [obtainLocationPermissionButton addTarget:self action:@selector(tappedRequestLocationAuthorization:) forControlEvents:UIControlEventTouchUpInside];
 
     self.dataLabel = [[UILabel alloc] init];
@@ -57,18 +66,22 @@
     [self.dataLabel autoPinEdgeToSuperviewEdge:ALEdgeRight];
     [self.dataLabel autoAlignAxisToSuperviewMarginAxis:ALAxisVertical];
     
-    self.dataCollector = [[BTDataCollector alloc] initWithEnvironment:BTDataCollectorEnvironmentSandbox];
+    self.dataCollector = [[BTDataCollector alloc] initWithAPIClient:self.apiClient];
     self.dataCollector.delegate = self;
 }
 
 - (IBAction)tappedCollect
 {    self.progressBlock(@"Started collecting all data...");
-    self.dataLabel.text = [self.dataCollector collectFraudData];
+    [self.dataCollector collectDeviceData:^(NSString * _Nonnull deviceData) {
+        self.dataLabel.text = deviceData;
+    }];
 }
 
 - (IBAction)tappedCollectKount {
     self.progressBlock(@"Started collecting Kount data...");
-    self.dataLabel.text = [self.dataCollector collectCardFraudData];
+    [self.dataCollector collectCardFraudData:^(NSString * _Nonnull deviceData) {
+        self.dataLabel.text = deviceData;
+    }];
 }
 
 - (IBAction)tappedCollectDyson {

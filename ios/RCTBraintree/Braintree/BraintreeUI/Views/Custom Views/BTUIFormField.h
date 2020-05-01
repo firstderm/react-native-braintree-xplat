@@ -3,13 +3,15 @@
 
 @protocol BTUIFormFieldDelegate;
 
-/// A form field is a UI component for entering a text value
-///
-/// This is the parent class of all card form fields,
-/// and handles display but not formatting, validation, or
-/// relaying of events
-///
-/// @see BTUIFormField()
+/**
+ A form field is a UI component for entering a text value
+
+ This is the parent class of all card form fields,
+ and handles display but not formatting, validation, or
+ relaying of events
+
+ @see BTUIFormField()
+*/
 @interface BTUIFormField : BTUIThemedView <UITextFieldDelegate, UIKeyInput>
 
 - (void)updateAppearance;
@@ -22,7 +24,9 @@
 @property (nonatomic, assign) BOOL bottomBorder;
 @property (nonatomic, assign, readwrite) BOOL backspace;
 
-/// The text displayed by the field
+/**
+ The text displayed by the field
+*/
 @property (nonatomic, copy) NSString *text;
 
 @end

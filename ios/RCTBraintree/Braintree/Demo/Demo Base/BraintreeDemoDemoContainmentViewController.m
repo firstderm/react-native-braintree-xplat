@@ -5,26 +5,27 @@
 #import <PureLayout/PureLayout.h>
 #import <BraintreeCore/BraintreeCore.h>
 
-#import "BraintreeDemoMerchantAPI.h"
 #import "BraintreeDemoBaseViewController.h"
-#import "BraintreeDemoIntegrationViewController.h"
-#import "BraintreeDemoSlideNavigationController.h"
-#import "BraintreeDemoSettings.h"
 
-@interface BraintreeDemoDemoContainmentViewController () <IASKSettingsDelegate, SlideNavigationControllerDelegate, IntegrationViewControllerDelegate>
+#import "Demo-Swift.h"
+
+@interface BraintreeDemoDemoContainmentViewController () <IASKSettingsDelegate>
 @property (nonatomic, strong) UIBarButtonItem *statusItem;
 @property (nonatomic, strong) BTPaymentMethodNonce *latestTokenizedPayment;
 @property (nonatomic, strong) BraintreeDemoBaseViewController *currentDemoViewController;
-@property (nonatomic, strong) UIViewController *rightMenu;
 @end
 
 @implementation BraintreeDemoDemoContainmentViewController
 
 - (void)viewDidLoad {
+    self.title = NSLocalizedString(@"Braintree", nil);
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action: @selector(tappedRefresh)];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"Settings", nil) style:UIBarButtonItemStylePlain target:self action: @selector(tappedSettings)];
+    self.view.backgroundColor = [UIColor whiteColor];
+    [self.navigationController setToolbarHidden:NO];
     [super viewDidLoad];
     [self setupToolbar];
     [self reloadIntegration];
-    [self setupRightMenu];
 }
 
 - (void)setupToolbar {
@@ -36,7 +37,7 @@
                                                                                     action:nil];
     UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
     button.titleLabel.numberOfLines = 0;
-    [button setTitle:@"Ready" forState:UIControlStateNormal];
+    [button setTitle:NSLocalizedString(@"Ready", nil) forState:UIControlStateNormal];
     [button.titleLabel setTextColor:[UIColor whiteColor]];
     [button addTarget:self action:@selector(tappedStatus) forControlEvents:UIControlEventTouchUpInside];
     button.titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -48,19 +49,6 @@
     self.statusItem.enabled = NO;
     self.toolbarItems = @[flexSpaceLeft, self.statusItem, flexSpaceRight];
 }
-
-- (void)setupRightMenu {
-    BraintreeDemoIntegrationViewController *ivc = [[BraintreeDemoIntegrationViewController alloc] init];
-    ivc.delegate = self;
-    UINavigationController *nc = [[UINavigationController alloc] initWithRootViewController:ivc];
-    self.rightMenu = nc;
-    [BraintreeDemoSlideNavigationController sharedInstance].rightMenu = self.rightMenu;
-}
-
-- (BOOL)slideNavigationControllerShouldDisplayRightMenu {
-    return YES;
-}
-
 
 #pragma mark - UI Updates
 
@@ -87,16 +75,19 @@
         NSString *nonce = self.latestTokenizedPayment.nonce;
         [self updateStatus:@"Creating Transaction…"];
         [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
-        [[BraintreeDemoMerchantAPI sharedService] makeTransactionWithPaymentMethodNonce:nonce
-                                                                             completion:^(NSString *transactionId, NSError *error){
-                                                                                 [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
-                                                                                 self.latestTokenizedPayment = nil;
-                                                                                 if (error) {
-                                                                                     [self updateStatus:error.localizedDescription];
-                                                                                 } else {
-                                                                                     [self updateStatus:transactionId];
-                                                                                 }
-                                                                             }];
+        NSString *merchantAccountId = ([self.latestTokenizedPayment.type isEqualToString:@"UnionPay"]) ? @"fake_switch_usd" : nil;
+        
+        [BraintreeDemoMerchantAPIClient.shared makeTransactionWithPaymentMethodNonce:nonce
+                                                                   merchantAccountId:merchantAccountId
+                                                                          completion:^(NSString *transactionId, NSError *error) {
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+            self.latestTokenizedPayment = nil;
+            if (error) {
+                [self updateStatus:error.localizedDescription];
+            } else {
+                [self updateStatus:transactionId];
+            }
+        }];
     }
 }
 
@@ -122,7 +113,7 @@
         [self.currentDemoViewController.view removeFromSuperview];
     }
 
-    self.title = @"Braintree";
+    self.title = NSLocalizedString(@"Braintree", nil);
     
     if ([BraintreeDemoSettings authorizationOverride]) {
         self.currentDemoViewController = [self instantiateCurrentIntegrationViewControllerWithAuthorization:[BraintreeDemoSettings authorizationOverride]];
@@ -135,13 +126,13 @@
         // If we're using a Tokenization Key, then we're not using a Customer.
         NSString *tokenizationKey;
         switch ([BraintreeDemoSettings currentEnvironment]) {
-            case BraintreeDemoTransactionServiceEnvironmentSandboxBraintreeSampleMerchant:
+            case BraintreeDemoEnvironmentSandbox:
                 tokenizationKey = @"sandbox_9dbg82cq_dcpspy2brwdjr3qn";
                 break;
-            case BraintreeDemoTransactionServiceEnvironmentProductionExecutiveSampleMerchant:
+            case BraintreeDemoEnvironmentProduction:
                 tokenizationKey = @"production_t2wns2y2_dfy45jdj3dxkmz5m";
                 break;
-            case BraintreeDemoTransactionServiceEnvironmentCustomMerchant:
+            case BraintreeDemoEnvironmentCustom:
             default:
                 tokenizationKey = @"development_testing_integration_merchant_id";
                 break;
@@ -155,7 +146,7 @@
 
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
 
-    [[BraintreeDemoMerchantAPI sharedService] createCustomerAndFetchClientTokenWithCompletion:^(NSString *clientToken, NSError *error) {
+    [BraintreeDemoMerchantAPIClient.shared createCustomerAndFetchClientTokenWithCompletion:^(NSString *clientToken, NSError *error) {
         [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
         if (error) {
             [self updateStatus:error.localizedDescription];
@@ -177,6 +168,7 @@
     [self updateStatus:[NSString stringWithFormat:@"Presenting %@", NSStringFromClass([_currentDemoViewController class])]];
     _currentDemoViewController.progressBlock = [self progressBlock];
     _currentDemoViewController.completionBlock = [self completionBlock];
+    _currentDemoViewController.transactionBlock = [self transactionBlock];
     
     [self containIntegrationViewController:_currentDemoViewController];
     
@@ -186,8 +178,9 @@
 - (BraintreeDemoBaseViewController *)instantiateCurrentIntegrationViewControllerWithAuthorization:(NSString *)authorization {
     NSString *integrationName = [[NSUserDefaults standardUserDefaults] stringForKey:@"BraintreeDemoSettingsIntegration"];
     NSLog(@"Loading integration: %@", integrationName);
-
-    Class integrationClass = NSClassFromString(integrationName);
+    
+    // The prefix "Demo." is required for integration view controllers written in Swift
+    Class integrationClass = NSClassFromString(integrationName) ?: NSClassFromString([NSString stringWithFormat:@"Demo.%@", integrationName]);
     if (![integrationClass isSubclassOfClass:[BraintreeDemoBaseViewController class]]) {
         NSLog(@"%@ is not a valid BraintreeDemoBaseViewController", integrationName);
         return nil;
@@ -237,17 +230,22 @@
     return block;
 }
 
+- (void (^)(void))transactionBlock {
+    // This class is responsible for retaining the completion block
+    static id block;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        block = ^(){
+            [self tappedStatus];
+        };
+    });
+    return block;
+}
 
 #pragma mark IASKSettingsDelegate
 
 - (void)settingsViewControllerDidEnd:(IASKAppSettingsViewController *)sender {
     [sender dismissViewControllerAnimated:YES completion:nil];
-    [self reloadIntegration];
-}
-
-#pragma mark IntegrationViewControllerDelegate
-
-- (void)integrationViewController:(__unused BraintreeDemoIntegrationViewController *)integrationViewController didChangeAppSetting:(__unused NSDictionary *)appSetting {
     [self reloadIntegration];
 }
 

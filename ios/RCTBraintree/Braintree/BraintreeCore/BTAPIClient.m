@@ -9,7 +9,9 @@
 NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErrorDomain";
 
 @interface BTAPIClient ()
+
 @property (nonatomic, strong) dispatch_queue_t configurationQueue;
+
 @end
 
 @implementation BTAPIClient
@@ -26,38 +28,64 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
     }
 
     if (self = [super init]) {
+        BTAPIClientAuthorizationType authorizationType = [[self class] authorizationTypeForAuthorization:authorization];
+        switch (authorizationType) {
+            case BTAPIClientAuthorizationTypeTokenizationKey: {
+                NSURL *baseURL = [BTAPIClient baseURLFromTokenizationKey:authorization];
+
+                if (!baseURL) {
+                    NSString *reason = @"BTClient could not initialize because the provided tokenization key was invalid";
+                    [[BTLogger sharedLogger] error:reason];
+                    return nil;
+                }
+
+                _tokenizationKey = authorization;
+                _configurationHTTP = [[BTHTTP alloc] initWithBaseURL:baseURL tokenizationKey:authorization];
+
+                if (sendAnalyticsEvent) {
+                    [self queueAnalyticsEvent:@"ios.started.client-key"];
+                }
+                break;
+            }
+
+            case BTAPIClientAuthorizationTypeClientToken: {
+                NSError *error;
+                _clientToken = [[BTClientToken alloc] initWithClientToken:authorization error:&error];
+                if (error) { [[BTLogger sharedLogger] error:[error localizedDescription]]; }
+                if (!_clientToken) {
+                    [[BTLogger sharedLogger] error:@"BTClient could not initialize because the provided clientToken was invalid"];
+                    return nil;
+                }
+
+                _configurationHTTP = [[BTHTTP alloc] initWithClientToken:self.clientToken];
+
+                if (sendAnalyticsEvent) {
+                    [self queueAnalyticsEvent:@"ios.started.client-token"];
+                }
+                break;
+            }
+
+            case BTAPIClientAuthorizationTypePayPalUAT: {
+                NSError *error;
+                _payPalUAT = [[BTPayPalUAT alloc] initWithUATString:authorization error:&error];
+                if (!_payPalUAT || error) {
+                    [[BTLogger sharedLogger] error:@"BTClient could not initialize because the provided PayPal UAT was invalid"];
+                    [[BTLogger sharedLogger] error:[error localizedDescription]];
+                    return nil;
+                }
+                
+                _configurationHTTP = [[BTHTTP alloc] initWithPayPalUAT:_payPalUAT];
+
+                if (sendAnalyticsEvent) {
+                    [self queueAnalyticsEvent:@"ios.started.paypal-uat"];
+                }
+                break;
+            }
+        }
+
         _metadata = [[BTClientMetadata alloc] init];
         _configurationQueue = dispatch_queue_create("com.braintreepayments.BTAPIClient", DISPATCH_QUEUE_SERIAL);
 
-        NSURL *baseURL = [BTAPIClient baseURLFromTokenizationKey:authorization];
-        if (baseURL) {
-            _tokenizationKey = authorization;
-
-            _http = [[BTHTTP alloc] initWithBaseURL:baseURL tokenizationKey:authorization];
-            _configurationHTTP = [[BTHTTP alloc] initWithBaseURL:baseURL tokenizationKey:authorization];
-            
-            if (sendAnalyticsEvent) {
-                [self sendAnalyticsEvent:@"ios.started.client-key"];
-            }
-        } else {
-            NSError *error;
-            _clientToken = [[BTClientToken alloc] initWithClientToken:authorization error:&error];
-            if (error) { [[BTLogger sharedLogger] error:[error localizedDescription]]; }
-            if (!_clientToken) {
-                NSString *reason = @"BTClient could not initialize because the provided clientToken was invalid";
-                [[BTLogger sharedLogger] error:reason];
-                return nil;
-            }
-
-            NSURL *baseURL = [self.clientToken.json[@"clientApiUrl"] asURL];
-            _http = [[BTHTTP alloc] initWithBaseURL:baseURL authorizationFingerprint:self.clientToken.authorizationFingerprint];
-            _configurationHTTP = [[BTHTTP alloc] initWithBaseURL:baseURL authorizationFingerprint:self.clientToken.authorizationFingerprint];
-
-            if (sendAnalyticsEvent) {
-                [self sendAnalyticsEvent:@"ios.started.client-token"];
-            }
-        }
-        
         // BTHTTP's default NSURLSession does not cache responses, but we want the BTHTTP instance that fetches configuration to cache aggressively
         NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
         static NSURLCache *configurationCache;
@@ -68,9 +96,30 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
         configuration.URLCache = configurationCache;
         configuration.requestCachePolicy = NSURLRequestReturnCacheDataElseLoad;
         _configurationHTTP.session = [NSURLSession sessionWithConfiguration:configuration];
+
+        // Kickoff the background request to fetch the config
+        [self fetchOrReturnRemoteConfiguration:^(__unused BTConfiguration * _Nullable configuration, __unused NSError * _Nullable error) {
+            //noop
+        }];
     }
-    
+
     return self;
+}
+
++ (BTAPIClientAuthorizationType)authorizationTypeForAuthorization:(NSString *)authorization {
+    NSRegularExpression *isTokenizationKeyRegExp = [NSRegularExpression regularExpressionWithPattern:@"^[a-zA-Z0-9]+_[a-zA-Z0-9]+_[a-zA-Z0-9_]+$" options:0 error:NULL];
+    NSTextCheckingResult *tokenizationKeyMatch = [isTokenizationKeyRegExp firstMatchInString:authorization options:0 range: NSMakeRange(0, authorization.length)];
+
+    NSRegularExpression *isPayPalUATRegExp = [NSRegularExpression regularExpressionWithPattern:@"^[a-zA-Z0-9]+\\.[a-zA-Z0-9]+\\.[a-zA-Z0-9_-]+$" options:0 error:NULL];
+    NSTextCheckingResult *payPalUATMatch = [isPayPalUATRegExp firstMatchInString:authorization options:0 range: NSMakeRange(0, authorization.length)];
+
+    if (tokenizationKeyMatch) {
+        return BTAPIClientAuthorizationTypeTokenizationKey;
+    } else if (payPalUATMatch) {
+        return BTAPIClientAuthorizationTypePayPalUAT;
+    } else {
+        return BTAPIClientAuthorizationTypeClientToken;
+    }
 }
 
 - (instancetype)copyWithSource:(BTClientMetadataSourceType)source
@@ -82,12 +131,11 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
         copiedClient = [[[self class] alloc] initWithAuthorization:self.clientToken.originalValue sendAnalyticsEvent:NO];
     } else if (self.tokenizationKey) {
         copiedClient = [[[self class] alloc] initWithAuthorization:self.tokenizationKey sendAnalyticsEvent:NO];
+    } else if (self.payPalUAT) {
+        copiedClient = [[[self class] alloc] initWithAuthorization:self.payPalUAT.token sendAnalyticsEvent:NO];
     } else {
         NSAssert(NO, @"Cannot copy an API client that does not specify a client token or tokenization key");
     }
-
-    copiedClient.http = self.http;
-    copiedClient.configurationHTTP = self.configurationHTTP;
 
     if (copiedClient) {
         BTMutableClientMetadata *mutableMetadata = [self.metadata mutableCopy];
@@ -121,10 +169,11 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
     NSURLComponents *components = [[NSURLComponents alloc] init];
     components.scheme = [BTAPIClient schemeForEnvironmentString:environment];
     NSString *host = [BTAPIClient hostForEnvironmentString:environment];
-    NSArray *hostComponents = [host componentsSeparatedByString:@":"];
+    NSArray <NSString *> *hostComponents = [host componentsSeparatedByString:@":"];
     components.host = hostComponents[0];
     if (hostComponents.count > 1) {
-        components.port = hostComponents[1];
+        NSString *portString = hostComponents[1];
+        components.port = @(portString.integerValue);
     }
     components.path = [BTAPIClient clientApiBasePathForMerchantID:merchantID];
     if (!components.host || !components.path) {
@@ -143,13 +192,41 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
 
 + (NSString *)hostForEnvironmentString:(NSString *)environment {
     if ([[environment lowercaseString] isEqualToString:@"sandbox"]) {
-        return @"sandbox.braintreegateway.com";
+        return @"api.sandbox.braintreegateway.com";
     } else if ([[environment lowercaseString] isEqualToString:@"production"]) {
         return @"api.braintreegateway.com:443";
     } else if ([[environment lowercaseString] isEqualToString:@"development"]) {
         return @"localhost:3000";
     } else {
         return nil;
+    }
+}
+
++ (NSURL *)graphQLURLForEnvironment:(NSString *)environment {
+    NSURLComponents *components = [[NSURLComponents alloc] init];
+    components.scheme = [BTAPIClient schemeForEnvironmentString:environment];
+    NSString *host = [BTAPIClient graphQLHostForEnvironmentString:environment];
+    NSArray <NSString *> *hostComponents = [host componentsSeparatedByString:@":"];
+    if (hostComponents.count == 0) {
+        return nil;
+    }
+    components.host = hostComponents[0];
+    if (hostComponents.count > 1) {
+        NSString *portString = hostComponents[1];
+        components.port = @(portString.integerValue);
+    }
+    components.path = @"/graphql";
+
+    return components.URL;
+}
+
++ (NSString *)graphQLHostForEnvironmentString:(NSString *)environment {
+    if ([[environment lowercaseString] isEqualToString:@"sandbox"]) {
+        return @"payments.sandbox.braintree-api.com";
+    } else if ([[environment lowercaseString] isEqualToString:@"development"]) {
+        return @"localhost:8080";
+    } else {
+        return @"payments.braintree-api.com";
     }
 }
 
@@ -176,8 +253,11 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
         return;
     }
 
+    NSString *defaultFirstValue = defaultFirst ? @"true" : @"false";
+
     [self GET:@"v1/payment_methods"
-             parameters:@{@"default_first": @(defaultFirst)}
+             parameters:@{@"default_first": defaultFirstValue,
+                          @"session_id": self.metadata.sessionId}
              completion:^(BTJSON * _Nullable body, __unused NSHTTPURLResponse * _Nullable response, NSError * _Nullable error) {
                  dispatch_async(dispatch_get_main_queue(), ^{
                      if (completion) {
@@ -218,10 +298,16 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
     //       queue is a background queue to guarantee atomic access to the remote configuration resource.
     dispatch_async(self.configurationQueue, ^{
         __block NSError *fetchError;
-        
+
         dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
         __block BTConfiguration *configuration;
-        [self.configurationHTTP GET:@"v1/configuration" parameters:@{ @"configVersion": @"3" } completion:^(BTJSON * _Nullable body, NSHTTPURLResponse * _Nullable response, NSError * _Nullable error) {
+        NSString *configPath = @"v1/configuration"; // Default for tokenizationKey
+        if (self.clientToken) {
+            configPath = [self.clientToken.configURL absoluteString];
+        } else if (self.payPalUAT) {
+            configPath = [self.payPalUAT.configURL absoluteString];
+        }
+        [self.configurationHTTP GET:configPath parameters:@{ @"configVersion": @"3" } completion:^(BTJSON * _Nullable body, NSHTTPURLResponse * _Nullable response, NSError * _Nullable error) {
             if (error) {
                 fetchError = error;
             } else if (response.statusCode != 200) {
@@ -234,12 +320,37 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
                 fetchError = configurationDomainError;
             } else {
                 configuration = [[BTConfiguration alloc] initWithJSON:body];
+                if (!self.braintreeAPI) {
+                    NSURL *apiURL = [configuration.json[@"braintreeApi"][@"url"] asURL];
+                    NSString *accessToken = [configuration.json[@"braintreeApi"][@"accessToken"] asString];
+                    self.braintreeAPI = [[BTAPIHTTP alloc] initWithBaseURL:apiURL accessToken:accessToken];
+                }
+                if (!self.http) {
+                    NSURL *baseURL = [configuration.json[@"clientApiUrl"] asURL];
+                    if (self.clientToken) {
+                        self.http = [[BTHTTP alloc] initWithBaseURL:baseURL authorizationFingerprint:self.clientToken.authorizationFingerprint];
+                    } else if (self.tokenizationKey) {
+                        self.http = [[BTHTTP alloc] initWithBaseURL:baseURL tokenizationKey:self.tokenizationKey];
+                    } else if (self.payPalUAT) {
+                        self.http = [[BTHTTP alloc] initWithBaseURL:baseURL authorizationFingerprint:self.payPalUAT.token];
+                    }
+                }
+                if (!self.graphQL) {
+                    NSURL *graphQLBaseURL = [BTAPIClient graphQLURLForEnvironment:[configuration.json[@"environment"] asString]];
+                    if (self.clientToken) {
+                        self.graphQL = [[BTGraphQLHTTP alloc] initWithBaseURL:graphQLBaseURL authorizationFingerprint:self.clientToken.authorizationFingerprint];
+                    } else if (self.tokenizationKey) {
+                        self.graphQL = [[BTGraphQLHTTP alloc] initWithBaseURL:graphQLBaseURL tokenizationKey:self.tokenizationKey];
+                    } else if (self.payPalUAT) {
+                        self.graphQL = [[BTGraphQLHTTP alloc] initWithBaseURL:graphQLBaseURL authorizationFingerprint:self.payPalUAT.token];
+                    }
+                }
             }
-            
+
             // Important: Unlock semaphore in all cases
             dispatch_semaphore_signal(semaphore);
         }];
-        
+
         dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -259,14 +370,18 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
         analyticsService = [[BTAnalyticsService alloc] initWithAPIClient:self];
         analyticsService.flushThreshold = 5;
     });
-    
+
     // The analytics service may be overridden by unit tests. In that case, return the ivar and not the singleton
     if (_analyticsService) return _analyticsService;
-    
+
     return analyticsService;
 }
 
 - (void)sendAnalyticsEvent:(NSString *)eventKind {
+    [self.analyticsService sendAnalyticsEvent:eventKind completion:nil];
+}
+
+- (void)queueAnalyticsEvent:(NSString *)eventKind {
     [self.analyticsService sendAnalyticsEvent:eventKind];
 }
 
@@ -277,23 +392,85 @@ NSString *const BTAPIClientErrorDomain = @"com.braintreepayments.BTAPIClientErro
     return [metaParameters copy];
 }
 
+- (NSDictionary *)graphQLMetadata {
+    return self.metadata.parameters;
+}
+
+- (NSDictionary *)metaParametersWithParameters:(NSDictionary *)parameters forHTTPType:(BTAPIClientHTTPType)httpType {
+    if (httpType == BTAPIClientHTTPTypeBraintreeAPI) {
+        return parameters;
+    }
+
+    NSMutableDictionary *mutableParameters = [NSMutableDictionary dictionaryWithDictionary:parameters];
+    if (httpType == BTAPIClientHTTPTypeGraphQLAPI) {
+        mutableParameters[@"clientSdkMetadata"] = [self graphQLMetadata];
+    } else if (httpType == BTAPIClientHTTPTypeGateway) {
+        mutableParameters[@"_meta"] = [self metaParameters];
+    }
+
+    return [mutableParameters copy];
+}
+
 #pragma mark - HTTP Operations
 
 - (void)GET:(NSString *)endpoint parameters:(NSDictionary *)parameters completion:(void(^)(BTJSON *body, NSHTTPURLResponse *response, NSError *error))completionBlock {
-    [self.http GET:endpoint parameters:parameters completion:completionBlock];
+    [self GET:endpoint parameters:parameters httpType:BTAPIClientHTTPTypeGateway completion:completionBlock];
 }
 
 - (void)POST:(NSString *)endpoint parameters:(NSDictionary *)parameters completion:(void(^)(BTJSON *body, NSHTTPURLResponse *response, NSError *error))completionBlock {
-    NSMutableDictionary *mutableParameters = [NSMutableDictionary dictionary];
-    mutableParameters[@"_meta"] = [self metaParameters];
-    [mutableParameters addEntriesFromDictionary:parameters];
-    [self.http POST:endpoint parameters:mutableParameters completion:completionBlock];
+    [self POST:endpoint parameters:parameters httpType:BTAPIClientHTTPTypeGateway completion:completionBlock];
+}
 
+- (void)GET:(NSString *)endpoint parameters:(NSDictionary *)parameters httpType:(BTAPIClientHTTPType)httpType completion:(void(^)(BTJSON *body, NSHTTPURLResponse *response, NSError *error))completionBlock {
+    [self fetchOrReturnRemoteConfiguration:^(__unused BTConfiguration * _Nullable configuration, __unused NSError * _Nullable error) {
+        if (error != nil) {
+            completionBlock(nil, nil, error);
+            return;
+        }
+
+        [[self httpForType:httpType] GET:endpoint parameters:parameters completion:completionBlock];
+    }];
+}
+
+- (void)POST:(NSString *)endpoint parameters:(NSDictionary *)parameters httpType:(BTAPIClientHTTPType)httpType completion:(void(^)(BTJSON *body, NSHTTPURLResponse *response, NSError *error))completionBlock {
+    [self fetchOrReturnRemoteConfiguration:^(__unused BTConfiguration * _Nullable configuration, __unused NSError * _Nullable error) {
+        if (error != nil) {
+            completionBlock(nil, nil, error);
+            return;
+        }
+
+        NSDictionary *postParameters = [self metaParametersWithParameters:parameters forHTTPType:httpType];
+        [[self httpForType:httpType] POST:endpoint parameters:postParameters completion:completionBlock];
+    }];
+}
+
+- (BTHTTP *)httpForType:(BTAPIClientHTTPType)httpType {
+    if (httpType == BTAPIClientHTTPTypeBraintreeAPI) {
+        return self.braintreeAPI;
+    } else if (httpType == BTAPIClientHTTPTypeGraphQLAPI) {
+        return self.graphQL;
+    }
+    return self.http;
 }
 
 - (instancetype)init NS_UNAVAILABLE
 {
     return nil;
+}
+
+- (void)dealloc
+{
+    if (self.http && self.http.session) {
+        [self.http.session finishTasksAndInvalidate];
+    }
+
+    if (self.braintreeAPI && self.braintreeAPI.session) {
+        [self.braintreeAPI.session finishTasksAndInvalidate];
+    }
+
+    if (self.graphQL && self.graphQL.session) {
+        [self.graphQL.session finishTasksAndInvalidate];
+    }
 }
 
 @end

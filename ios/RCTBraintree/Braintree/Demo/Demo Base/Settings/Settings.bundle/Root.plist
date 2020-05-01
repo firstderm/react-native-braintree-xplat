@@ -17,6 +17,7 @@
 			<string>BraintreeDemoDropInViewController</string>
 			<key>Titles</key>
 			<array>
+				<string>Drop In (Legacy)</string>
 				<string>PayPal - Future Payment</string>
 				<string>PayPal - Billing Agreement</string>
 				<string>PayPal - Scopes</string>
@@ -31,12 +32,18 @@
 				<string>Drop In</string>
 				<string>UI Components</string>
 				<string>Credit Cards - 3D Secure</string>
+				<string>3D Secure Payment Flow</string>
 				<string>Combined - Custom Button</string>
 				<string>Fraud Protection - BTDataCollector</string>
 				<string>UnionPay</string>
+				<string>PayPal Credit</string>
+				<string>iDEAL</string>
+				<string>Amex</string>
+				<string>Preferred Payment Methods</string>
 			</array>
 			<key>Values</key>
 			<array>
+				<string>BraintreeDemoDropInLegacyViewController</string>
 				<string>BraintreeDemoPayPalForceFuturePaymentViewController</string>
 				<string>BraintreeDemoPayPalBillingAgreementViewController</string>
 				<string>BraintreeDemoPayPalScopesViewController</string>
@@ -51,9 +58,14 @@
 				<string>BraintreeDemoDropInViewController</string>
 				<string>BraintreeDemoUIWidgetsViewController</string>
 				<string>BraintreeDemoThreeDSecureViewController</string>
+				<string>BraintreeDemoThreeDSecurePaymentFlowViewController</string>
 				<string>BraintreeDemoCustomMultiPayViewController</string>
 				<string>BraintreeDemoBTDataCollectorViewController</string>
 				<string>BraintreeDemoUnionPayViewController</string>
+				<string>BraintreeDemoPayPalCreditPaymentViewController</string>
+				<string>BraintreeDemoIdealViewController</string>
+				<string>BraintreeDemoAmexViewController</string>
+				<string>BraintreeDemoPreferredPaymentMethodsViewController</string>
 			</array>
 		</dict>
 		<dict>
@@ -187,6 +199,37 @@
 			<string>BraintreeDemoCoinbaseDisabledDefaultsKey</string>
 			<key>DefaultValue</key>
 			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Client Token Version</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Client Token Version</string>
+			<key>Key</key>
+			<string>BraintreeDemoSettingsClientTokenVersionDefaultsKey</string>
+			<key>Values</key>
+			<array>
+				<integer>2</integer>
+				<integer>3</integer>
+			</array>
+			<key>DefaultValue</key>
+			<integer>2</integer>
+			<key>Titles</key>
+			<array>
+				<string>v2</string>
+				<string>v3</string>
+			</array>
+			<key>ShortTitles</key>
+			<array>
+				<string>v2</string>
+				<string>v3</string>
+			</array>
 		</dict>
 	</array>
 </dict>
